@@ -447,10 +447,10 @@ function MessageBubble({ msg }: { msg: Message }) {
                 );
               }
               if (block.kind === "chart") {
-                return <ChartRenderer key={i} spec={block.spec as Parameters<typeof ChartRenderer>[0]["spec"]} />;
+                return <ChartRenderer key={i} spec={block.spec as unknown as Parameters<typeof ChartRenderer>[0]["spec"]} />;
               }
               if (block.kind === "insight") {
-                return <InsightCard key={i} spec={block.spec as Parameters<typeof InsightCard>[0]["spec"]} />;
+                return <InsightCard key={i} spec={block.spec as unknown as Parameters<typeof InsightCard>[0]["spec"]} />;
               }
               if (block.kind === "query") {
                 return (
