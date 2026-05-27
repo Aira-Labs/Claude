@@ -3,7 +3,6 @@ import Credentials from "next-auth/providers/credentials";
 
 // Format in ADMIN_USERS env var:
 // email:password,email2:password2
-// e.g. kevin@airalabs.io:hunter2,frankie@airalabs.io:securepass
 function getAdminUsers(): Record<string, string> {
   const raw = process.env.ADMIN_USERS ?? "";
   return Object.fromEntries(
@@ -42,6 +41,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     },
   },
   session: { strategy: "jwt" },
+  trustHost: true,
   pages: {
     signIn: "/login",
     error: "/login",

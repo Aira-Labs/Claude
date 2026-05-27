@@ -7,6 +7,7 @@ const nextConfig = {
     config.externals = [...(config.externals || []), { canvas: "canvas" }];
     return config;
   },
+  serverExternalPackages: ["pg", "@node-rs/argon2", "@node-rs/bcrypt"],
 };
 
 module.exports = nextConfig;
