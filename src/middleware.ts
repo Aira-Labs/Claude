@@ -5,14 +5,34 @@ const SECRET = new TextEncoder().encode(process.env.AUTH_SECRET ?? "fallback-sec
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
-const isPublic = pathname.startsWith("/login") || pathname.startsWith("/api/auth") || pathname.startsWith("/api/debug");
+
+  const isPublic =
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/api/auth") ||
+    pathname.startsWith("/api/debug") ||
+    pathname.startsWith("/_next") ||
+    pathname === "/favicon.ico";
+
   const token = req.cookies.get("aira-session")?.value;
   let isLoggedIn = false;
+
   if (token) {
-    try { await jwtVerify(token, SECRET); isLoggedIn = true; } catch {}
+    try {
+      await jwtVerify(token, SECRET);
+      isLoggedIn = true;
+    } catch {
+      isLoggedIn = false;
+    }
   }
-  if (!isLoggedIn && !isPublic) return NextResponse.redirect(new URL("/login", req.url));
-  if (isLoggedIn && pathname === "/login") return NextResponse.redirect(new URL("/chat", req.url));
+
+  if (!isLoggedIn && !isPublic) {
+    return NextResponse.redirect(new URL("/login", req.url));
+  }
+
+  if (isLoggedIn && pathname === "/login") {
+    return NextResponse.redirect(new URL("/chat", req.url));
+  }
+
   return NextResponse.next();
 }
 
