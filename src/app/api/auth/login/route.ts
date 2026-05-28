@@ -1,37 +1,48 @@
 import { NextRequest, NextResponse } from "next/server";
 import { SignJWT } from "jose";
 
-const SECRET = new TextEncoder().encode(process.env.AUTH_SECRET ?? "fallback-secret");
-
-function getAdminUsers(): Record<string, string> {
-  const raw = process.env.ADMIN_USERS ?? "";
-  return Object.fromEntries(
-    raw.split(",")
-      .map((entry) => entry.trim().split(":"))
-      .filter((parts) => parts.length >= 2)
-      .map(([email, ...rest]) => [email.trim().toLowerCase(), rest.join(":").trim()])
-  );
-}
+const SECRET = new TextEncoder().encode(
+  process.env.AUTH_SECRET ?? "dev-secret-change-me"
+);
 
 export async function POST(req: NextRequest) {
-  const { email, password } = await req.json();
-  const admins = getAdminUsers();
-  const key = email?.toLowerCase().trim();
-  if (!key || !password || admins[key] !== password) {
-    return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
+  try {
+    const { email, password } = await req.json();
+
+    const raw = process.env.ADMIN_USERS ?? "";
+    const users: Record<string, string> = {};
+    for (const entry of raw.split(",")) {
+      const colonIdx = entry.indexOf(":");
+      if (colonIdx === -1) continue;
+      const e = entry.slice(0, colonIdx).trim().toLowerCase();
+      const p = entry.slice(colonIdx + 1).trim();
+      users[e] = p;
+    }
+
+    const key = (email ?? "").toLowerCase().trim();
+    const pass = password ?? "";
+
+    if (!users[key] || users[key] !== pass) {
+      return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
+    }
+
+    const token = await new SignJWT({ email: key })
+      .setProtectedHeader({ alg: "HS256" })
+      .setExpirationTime("7d")
+      .sign(SECRET);
+
+    const response = NextResponse.json({ ok: true });
+    response.cookies.set({
+      name: "aira-session",
+      value: token,
+      httpOnly: true,
+      secure: true,
+      sameSite: "lax",
+      maxAge: 60 * 60 * 24 * 7,
+      path: "/",
+    });
+    return response;
+  } catch (e) {
+    return NextResponse.json({ error: String(e) }, { status: 500 });
   }
-  const token = await new SignJWT({ email: key, name: key.split("@")[0] })
-    .setProtectedHeader({ alg: "HS256" })
-    .setIssuedAt()
-    .setExpirationTime("7d")
-    .sign(SECRET);
-  const res = NextResponse.json({ ok: true });
-res.cookies.set("aira-session", token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    maxAge: 60 * 60 * 24 * 7,
-    path: "/",
-  });
-  return res;
 }
