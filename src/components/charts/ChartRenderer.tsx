@@ -49,7 +49,7 @@ export function ChartRenderer({ spec }: { spec: any }) {
       <Comp data={data}>
         <CartesianGrid strokeDasharray="3 3" stroke="#1f2430" vertical={false} />
         <XAxis dataKey={xKey} {...ax} tickFormatter={(v: string) => String(v).length > 10 ? String(v).slice(0,10) : v} />
-        <YAxis {...ax} tickFormatter={(v: number) => config.unit ? `${v}${config.unit}` : v} />
+<YAxis {...ax} tickFormatter={(v: number) => config.unit ? `${v}${config.unit}` : String(v)} />
         <Tooltip {...tip} />
         <Legend formatter={(v: string) => <span style={{ color: "#8a9ab8", fontSize: 12 }}>{v}</span>} />
         {yKeys.map((key: string, i: number) => {
