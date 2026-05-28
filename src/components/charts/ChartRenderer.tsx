@@ -1,5 +1,6 @@
 "use client";
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import dynamic from "next/dynamic";
 import {
   LineChart, Line, BarChart, Bar, AreaChart, Area,
@@ -8,8 +9,8 @@ import {
   Tooltip, Legend, ResponsiveContainer,
 } from "recharts";
 
-// Plotly loaded client-side only (large bundle)
-const Plot = dynamic(() => import("react-plotly.js"), { ssr: false });
+// Plotly loaded client-side only — typed as any to avoid declaration conflicts
+const Plot = dynamic(() => import("react-plotly.js"), { ssr: false }) as any;
 
 const COLORS = [
   "#00e5c8", "#3b82f6", "#8b5cf6", "#f59e0b",
@@ -81,40 +82,31 @@ export function ChartRenderer({ spec }: { spec: ChartSpec }) {
       lngs.reduce((a, b) => a + b, 0) / lngs.length,
     ];
 
-    let plotData: Plotly.Data[];
+    let plotData: any[];
     if (chart_type === "map_heatmap") {
       plotData = [{
         type: "densitymapbox",
         lat: lats, lon: lngs, z: values,
         radius: 20,
-        colorscale: [
-          [0, "#00e5c8"], [0.5, "#f59e0b"], [1, "#ef4444"],
-        ],
-      } as Plotly.Data];
-    } else if (chart_type === "map_choropleth") {
+        colorscale: [[0, "#00e5c8"], [0.5, "#f59e0b"], [1, "#ef4444"]],
+      }];
+    } else {
       plotData = [{
         type: "scattermapbox",
         lat: lats, lon: lngs,
         mode: "markers",
         marker: {
-          size: 12,
-          color: values,
-          colorscale: [[0, "#00e5c8"], [0.5, "#f59e0b"], [1, "#ef4444"]],
-          showscale: true,
-          colorbar: { tickfont: { color: "#8a9ab8" }, bgcolor: "#181c23" },
+          size: chart_type === "map_choropleth" ? 12 : 8,
+          color: chart_type === "map_choropleth" ? values : "#00e5c8",
+          colorscale: chart_type === "map_choropleth"
+            ? [[0, "#00e5c8"], [0.5, "#f59e0b"], [1, "#ef4444"]]
+            : undefined,
+          showscale: chart_type === "map_choropleth",
+          opacity: 0.8,
         },
-        text: data.map((d) => JSON.stringify(d)),
-      } as Plotly.Data];
-    } else {
-      // map_points
-      plotData = [{
-        type: "scattermapbox",
-        lat: lats, lon: lngs,
-        mode: "markers",
-        marker: { size: 8, color: "#00e5c8", opacity: 0.8 },
         text: data.map((d) => Object.entries(d).map(([k, v]) => `${k}: ${v}`).join("<br>")),
         hoverinfo: "text",
-      } as Plotly.Data];
+      }];
     }
 
     return (
@@ -133,7 +125,7 @@ export function ChartRenderer({ spec }: { spec: ChartSpec }) {
             paper_bgcolor: "rgba(0,0,0,0)",
             plot_bgcolor: "rgba(0,0,0,0)",
             font: { color: "#8a9ab8", family: "DM Mono" },
-          } as Plotly.Layout}
+          }}
           config={{ displayModeBar: false, scrollZoom: true }}
           style={{ width: "100%", borderRadius: 8, overflow: "hidden" }}
         />
@@ -144,7 +136,6 @@ export function ChartRenderer({ spec }: { spec: ChartSpec }) {
   // ── Pie / Donut ───────────────────────────────────────────────────────
   if (chart_type === "pie" || chart_type === "donut") {
     const valueKey = yKeys[0] ?? "value";
-    const nameKey = xKey;
     return (
       <div style={containerStyle}>
         <div style={titleStyle}>{title}</div>
@@ -153,7 +144,7 @@ export function ChartRenderer({ spec }: { spec: ChartSpec }) {
             <Pie
               data={data}
               dataKey={valueKey}
-              nameKey={nameKey}
+              nameKey={xKey}
               cx="50%"
               cy="50%"
               innerRadius={chart_type === "donut" ? "55%" : 0}
@@ -165,11 +156,7 @@ export function ChartRenderer({ spec }: { spec: ChartSpec }) {
               ))}
             </Pie>
             <Tooltip {...tooltipStyle} />
-            <Legend
-              formatter={(v) => (
-                <span style={{ color: "#8a9ab8", fontSize: 12 }}>{v}</span>
-              )}
-            />
+            <Legend formatter={(v) => <span style={{ color: "#8a9ab8", fontSize: 12 }}>{v}</span>} />
           </PieChart>
         </ResponsiveContainer>
       </div>
@@ -208,7 +195,7 @@ export function ChartRenderer({ spec }: { spec: ChartSpec }) {
             y: data.map((d) => d[yKey2]),
             z: data.map((d) => d[zKey]),
             colorscale: [[0, "#0a0a0a"], [0.5, "#00b8a0"], [1, "#00e5c8"]],
-          } as Plotly.Data]}
+          }]}
           layout={{
             height: 280,
             margin: { t: 8, b: 40, l: 40, r: 8 },
@@ -217,7 +204,7 @@ export function ChartRenderer({ spec }: { spec: ChartSpec }) {
             font: { color: "#8a9ab8", family: "DM Mono" },
             xaxis: { gridcolor: "#1f2430" },
             yaxis: { gridcolor: "#1f2430" },
-          } as Plotly.Layout}
+          }}
           config={{ displayModeBar: false }}
           style={{ width: "100%" }}
         />
@@ -249,43 +236,16 @@ export function ChartRenderer({ spec }: { spec: ChartSpec }) {
           />
           <Tooltip
             {...tooltipStyle}
-            formatter={(v: number) =>
-              config.unit ? [`${v} ${config.unit}`] : [v]
-            }
+            formatter={(v: number) => config.unit ? [`${v} ${config.unit}`] : [v]}
           />
-          <Legend
-            formatter={(v) => (
-              <span style={{ color: "#8a9ab8", fontSize: 12 }}>{v}</span>
-            )}
-          />
+          <Legend formatter={(v) => <span style={{ color: "#8a9ab8", fontSize: 12 }}>{v}</span>} />
           {yKeys.map((key, i) => {
             const c = colors[i % colors.length];
             if (chart_type === "bar")
               return <Bar key={key} dataKey={key} fill={c} radius={[3, 3, 0, 0]} fillOpacity={0.85} />;
             if (chart_type === "area")
-              return (
-                <Area
-                  key={key}
-                  type="monotone"
-                  dataKey={key}
-                  stroke={c}
-                  fill={c}
-                  fillOpacity={0.1}
-                  strokeWidth={2}
-                  dot={false}
-                />
-              );
-            return (
-              <Line
-                key={key}
-                type="monotone"
-                dataKey={key}
-                stroke={c}
-                strokeWidth={2}
-                dot={false}
-                activeDot={{ r: 4, fill: c }}
-              />
-            );
+              return <Area key={key} type="monotone" dataKey={key} stroke={c} fill={c} fillOpacity={0.1} strokeWidth={2} dot={false} />;
+            return <Line key={key} type="monotone" dataKey={key} stroke={c} strokeWidth={2} dot={false} activeDot={{ r: 4, fill: c }} />;
           })}
         </ChartComponent>
       </ResponsiveContainer>
