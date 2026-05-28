@@ -1,6 +1,5 @@
 "use client";
 
-import { signIn } from "next-auth/react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useState, Suspense } from "react";
 
@@ -19,17 +18,49 @@ function LoginContent() {
     setLoading(true);
     setFormError("");
 
-    const res = await signIn("credentials", {
-      email,
-      password,
-      redirect: false,
-    });
+    try {
+      // Get CSRF token first
+      const csrfRes = await fetch("/api/auth/csrf");
+      const { csrfToken } = await csrfRes.json();
 
-    if (res?.error) {
-      setFormError("Invalid email or password.");
+      // Post credentials directly
+      const res = await fetch("/api/auth/callback/credentials", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          email,
+          password,
+          csrfToken,
+          callbackUrl: "/chat",
+          json: "true",
+        }),
+        redirect: "follow",
+      });
+
+      if (res.ok) {
+        // Check if we got redirected to /chat (success) or back to /login (failure)
+        const url = res.url;
+        if (url.includes("/chat") || url.includes("callbackUrl")) {
+          router.push("/chat");
+          router.refresh();
+        } else {
+          // Try checking the response body
+          const text = await res.text();
+          if (text.includes("chat") || res.redirected) {
+            router.push("/chat");
+            router.refresh();
+          } else {
+            setFormError("Invalid email or password.");
+            setLoading(false);
+          }
+        }
+      } else {
+        setFormError("Invalid email or password.");
+        setLoading(false);
+      }
+    } catch {
+      setFormError("Something went wrong. Please try again.");
       setLoading(false);
-    } else {
-      router.push("/chat");
     }
   };
 
@@ -56,7 +87,6 @@ function LoginContent() {
       position: "relative",
       overflow: "hidden",
     }}>
-      {/* Background grid */}
       <div style={{
         position: "absolute", inset: 0,
         backgroundImage: `
@@ -65,8 +95,6 @@ function LoginContent() {
         `,
         backgroundSize: "40px 40px",
       }} />
-
-      {/* Glow */}
       <div style={{
         position: "absolute",
         top: "30%", left: "50%",
@@ -76,7 +104,6 @@ function LoginContent() {
         pointerEvents: "none",
       }} />
 
-      {/* Card */}
       <div className="fade-up" style={{
         position: "relative",
         width: 420,
@@ -86,7 +113,6 @@ function LoginContent() {
         borderRadius: "var(--r-xl)",
         boxShadow: "0 32px 80px rgba(0,0,0,0.5), 0 0 0 1px rgba(0,229,200,0.05) inset",
       }}>
-        {/* Logo */}
         <div style={{ textAlign: "center", marginBottom: 32 }}>
           <div style={{
             width: 52, height: 52,
@@ -119,7 +145,6 @@ function LoginContent() {
           </p>
         </div>
 
-        {/* Errors */}
         {(formError || error) && (
           <div style={{
             padding: "12px 16px",
@@ -134,7 +159,6 @@ function LoginContent() {
           </div>
         )}
 
-        {/* Form */}
         <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <div>
             <label style={{
