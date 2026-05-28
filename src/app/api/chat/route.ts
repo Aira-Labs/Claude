@@ -50,7 +50,8 @@ ${schema}
 \`\`\`
 
 Always query the database before answering data questions. For numeric questions also generate a chart.
-PM2.5 context: WHO guideline 15 µg/m³, UK limit 20 µg/m³.`;
+PM2.5 context: WHO guideline 15 µg/m³, UK limit 20 µg/m³.
+IMPORTANT: Only call ONE tool at a time. Wait for each tool result before calling the next tool.`;
 
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
@@ -59,14 +60,24 @@ PM2.5 context: WHO guideline 15 µg/m³, UK limit 20 µg/m³.`;
 
       try {
         let msgs: Anthropic.MessageParam[] = messages;
-        for (let i = 0; i < 10; i++) {
-          const res = await client.messages.create({ model: "claude-opus-4-5", max_tokens: 4096, system, tools, messages: msgs });
+
+        for (let i = 0; i < 15; i++) {
+          const res = await client.messages.create({
+            model: "claude-opus-4-5",
+            max_tokens: 4096,
+            system,
+            tools,
+            messages: msgs,
+          });
+
+          const toolResults: Anthropic.ToolResultBlockParam[] = [];
 
           for (const block of res.content) {
             if (block.type === "text") {
               send({ type: "text", content: block.text });
             } else if (block.type === "tool_use") {
               let result: unknown;
+
               if (block.name === "query_database") {
                 const { sql, description } = block.input as { sql: string; description: string };
                 send({ type: "query", sql, description });
@@ -85,11 +96,27 @@ PM2.5 context: WHO guideline 15 µg/m³, UK limit 20 µg/m³.`;
                 send({ type: "chart", spec: block.input });
                 result = { rendered: true };
               }
-              msgs = [...msgs, { role: "assistant", content: res.content }, { role: "user", content: [{ type: "tool_result", tool_use_id: block.id, content: JSON.stringify(result) }] }];
+
+              toolResults.push({
+                type: "tool_result",
+                tool_use_id: block.id,
+                content: JSON.stringify(result),
+              });
             }
           }
-          if (res.stop_reason === "end_turn" || res.stop_reason !== "tool_use") break;
+
+          if (toolResults.length > 0) {
+            msgs = [
+              ...msgs,
+              { role: "assistant", content: res.content },
+              { role: "user", content: toolResults },
+            ];
+          }
+
+          if (res.stop_reason === "end_turn") break;
+          if (res.stop_reason !== "tool_use") break;
         }
+
         send({ type: "done" });
       } catch (e) {
         send({ type: "error", message: String(e) });
