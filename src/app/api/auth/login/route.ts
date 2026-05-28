@@ -26,9 +26,12 @@ export async function POST(req: NextRequest) {
     .setExpirationTime("7d")
     .sign(SECRET);
   const res = NextResponse.json({ ok: true });
-  res.cookies.set("aira-session", token, {
-    httpOnly: true, secure: true, sameSite: "lax",
-    maxAge: 60 * 60 * 24 * 7, path: "/",
+res.cookies.set("aira-session", token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    maxAge: 60 * 60 * 24 * 7,
+    path: "/",
   });
   return res;
 }
