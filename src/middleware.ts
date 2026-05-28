@@ -5,7 +5,7 @@ const SECRET = new TextEncoder().encode(process.env.AUTH_SECRET ?? "fallback-sec
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
-  const isPublic = pathname.startsWith("/login") || pathname.startsWith("/api/auth");
+const isPublic = pathname.startsWith("/login") || pathname.startsWith("/api/auth") || pathname.startsWith("/api/debug");
   const token = req.cookies.get("aira-session")?.value;
   let isLoggedIn = false;
   if (token) {
