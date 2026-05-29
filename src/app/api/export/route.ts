@@ -1,6 +1,5 @@
 // @ts-nocheck
 import { NextRequest, NextResponse } from "next/server";
-...
 import { Pool } from "pg";
 
 const pool = new Pool({
@@ -15,36 +14,34 @@ export async function GET(req: NextRequest) {
 
   const client = await pool.connect();
   try {
-    // Find user — try common email column names
     const userRes = await client.query(
-      `SELECT id FROM users WHERE email = $1 OR email_address = $1 LIMIT 1`,
+      `SELECT id FROM users WHERE email = $1 LIMIT 1`,
       [email]
     );
 
-    let whereClause = "";
-    const params: unknown[] = [];
-
+    let rows;
     if (userRes.rows.length) {
-      whereClause = `WHERE user_id = $1 AND timestamp >= NOW() - INTERVAL '${days} days'`;
-      params.push(userRes.rows[0].id);
+      const userId = userRes.rows[0].id;
+      const dataRes = await client.query(
+        `SELECT * FROM air_quality_data WHERE user_id = $1 AND timestamp >= NOW() - INTERVAL '${days} days' ORDER BY timestamp DESC LIMIT 50000`,
+        [userId]
+      );
+      rows = dataRes.rows;
     } else {
-      // No user filter — just return recent data
-      whereClause = `WHERE timestamp >= NOW() - INTERVAL '${days} days'`;
+      const dataRes = await client.query(
+        `SELECT * FROM air_quality_data WHERE timestamp >= NOW() - INTERVAL '${days} days' ORDER BY timestamp DESC LIMIT 50000`
+      );
+      rows = dataRes.rows;
     }
 
-    const dataRes = await client.query(
-      `SELECT * FROM air_quality_data ${whereClause} ORDER BY timestamp DESC LIMIT 50000`,
-      params
-    );
-
-    if (!dataRes.rows.length) {
+    if (!rows.length) {
       return new NextResponse("No data found", { status: 404 });
     }
 
-    const headers = Object.keys(dataRes.rows[0]);
+    const headers = Object.keys(rows[0]);
     const csv = [
       headers.join(","),
-      ...dataRes.rows.map(row =>
+      ...rows.map(row =>
         headers.map(h => {
           const val = row[h];
           if (val === null || val === undefined) return "";
@@ -55,4 +52,15 @@ export async function GET(req: NextRequest) {
       )
     ].join("\n");
 
-    re
+    return new NextResponse(csv, {
+      headers: {
+        "Content-Type": "text/csv",
+        "Content-Disposition": `attachment; filename="aira_export_${days}days.csv"`,
+      },
+    });
+  } catch (e) {
+    return new NextResponse(`Error: ${String(e)}`, { status: 500 });
+  } finally {
+    client.release();
+  }
+}
