@@ -24,9 +24,8 @@ export async function GET(req: NextRequest) {
     const userId = userRes.rows[0].id;
 
     // Get AQ data
-    const dataRes = await client.query(
-      `SELECT timestamp, pm25, pm10, temperature, humidity, co, no2, o3, so2, is_indoor, device_id
-       FROM air_quality_data
+   const dataRes = await client.query(
+      `SELECT * FROM air_quality_data
        WHERE user_id = $1 AND timestamp >= NOW() - INTERVAL '${days} days'
        ORDER BY timestamp DESC`,
       [userId]
