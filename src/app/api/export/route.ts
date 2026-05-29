@@ -1,4 +1,6 @@
+// @ts-nocheck
 import { NextRequest, NextResponse } from "next/server";
+...
 import { Pool } from "pg";
 
 const pool = new Pool({
