@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
     if (userRes.rows.length) {
       const userId = userRes.rows[0].id;
       const dataRes = await client.query(
-        `SELECT * FROM air_quality_data WHERE user_id = $1 AND timestamp >= NOW() - INTERVAL '${days} days' ORDER BY timestamp DESC LIMIT 50000`,
+        `SELECT * FROM air_quality_data WHERE user_id = $1 AND created_at >= NOW() - INTERVAL '${days} days' ORDER BY created_at DESC LIMIT 50000`,
         [userId]
       );
       rows = dataRes.rows;
